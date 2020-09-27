@@ -1,0 +1,152 @@
+//iptracker_bit_misc
+
+<tr><td class="trow1" align="center">{$status}</td>
+	<td class="trow1" align="center"><i class="fa fa-users" aria-hidden="true"></i> {$szenen['spieler']} <br />
+		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen['datum']} <br />
+		<i class="fa fa-map-signs" aria-hidden="true"></i> {$szenen['ort']}</td>
+	<td class="trow1" align="center"><div class="lastpost_title" style="width: 70%;">&raquo; {$szene_link}</div>
+		<i class="fa fa-user" aria-hidden="true"></i> {$szenen['lastposter']}<br/>
+		<i class="fa fa-clock-o" aria-hidden="true"></i> {$postdate}</td></tr>
+    
+    //iptracker_datum
+    <tr>
+<td class="trow1" width="20%"><strong>Datum &amp; Uhrzeit:</strong></td>
+    <td class="trow1">
+        <table><tr>
+            <td width="50px" align="center">
+       	<input type="number" class="textbox" name="day" value="{$day}" width="10" placeholder="00"></td>
+        <td width="50px" align="center">
+			<input type="number" class="textbox" name="month" value="{$month}" width="10" placeholder="00"></td>
+<td width="70px" align="center">
+<input type="number" class="textbox" name="year" value="{$year}" width="10" placeholder="0000">
+   </td>
+		<td align="center">  <input type="time" name="ip_time" value="{$ip_time}">
+			</td>
+</tr></table></td>
+</tr>
+
+// iptracker_forumdisplay
+<div class="smalltext"> {$thread['spieler']} {$thread['datum']} {$thread['ort']}
+				</div>
+        
+// iptracker_global
+<a href="misc.php?action=ipszenen">Deine Szenen</a> ({$alleoffeneszenen}|{$alleszenen})
+
+//iptracker_misc
+<html>
+<head>
+<title>Deine Inplayszenen</title>
+{$headerinclude}
+</head>
+<body>
+{$header}
+<table border="0" cellspacing="{$theme['borderwidth']}" cellpadding="{$theme['tablespace']}" class="tborder">
+<tr>
+<td class="trow2"><h1>Deine Inplayszenen (<i class="fa fa-folder-open" aria-hidden="true"></i> {$alleoffeneszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$alleszenen})</h1></td>
+</tr>
+<tr>
+<td class="trow1" align="center">
+{$szenen_bit}
+</td>
+</tr>
+</table>
+{$footer}
+</body>
+</html>
+
+// iptracker_misc_bit
+<table width="100%"><tr><td colspan="3" class="trow1"><h2>{$character} (<i class="fa fa-folder-open" aria-hidden="true"></i> {$charaoffenszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$charaszenen})</h2></td> </tr>
+	<tr><td class="trow1" width="20%"><strong>Status</strong></td>
+		<td class="trow1" width="40%"><strong>Szeneninformationen</strong></td>
+		<td class="trow1" width="40%"><strong>Letzter Post</strong></td>
+	</tr>
+{$szene}
+</table>
+
+//iptracker_mitspieler
+<tr>
+<td class="trow1" width="20%"><strong>Charaktere:</strong></td>
+<td class="trow1"><span class="smalltext"><input type="text" class="textbox" name="spieler" id="spieler" size="40" maxlength="1155" value="{$spieler}" style="min-width: 347px; max-width: 100%;" /> </span> </td>
+</tr>
+
+<link rel="stylesheet" href="{$mybb->asset_url}/jscripts/select2/select2.css?ver=1807">
+<script type="text/javascript" src="{$mybb->asset_url}/jscripts/select2/select2.min.js?ver=1806"></script>
+<script type="text/javascript">
+<!--
+if(use_xmlhttprequest == "1")
+{
+    MyBB.select2();
+    $("#spieler").select2({
+        placeholder: "{$lang->search_user}",
+        minimumInputLength: 2,
+        maximumSelectionSize: '',
+        multiple: true,
+        ajax: { // instead of writing the function to execute the request we use Select2's convenient helper
+            url: "xmlhttp.php?action=get_users",
+            dataType: 'json',
+            data: function (term, page) {
+                return {
+                    query: term, // search term
+                };
+            },
+            results: function (data, page) { // parse the results into the format expected by Select2.
+                // since we are using custom formatting functions we do not need to alter remote JSON data
+                return {results: data};
+            }
+        },
+        initSelection: function(element, callback) {
+            var query = $(element).val();
+            if (query !== "") {
+                var newqueries = [];
+                exp_queries = query.split(",");
+                $.each(exp_queries, function(index, value ){
+                    if(value.replace(/\s/g, '') != "")
+                    {
+                        var newquery = {
+                            id: value.replace(/,\s?/g, ","),
+                            text: value.replace(/,\s?/g, ",")
+                        };
+                        newqueries.push(newquery);
+                    }
+                });
+                callback(newqueries);
+            }
+        }
+    })
+}
+// -->
+</script>
+
+// iptracker_mitspieler_edit
+<tr>
+<td class="trow1" width="20%"><strong>Charaktere:</strong></td>
+<td class="trow1"><span class="smalltext"> <input type="text" class="textbox" name="spieler" size="40" maxlength="1155" value="{$spieler}" /> <br /> Trägst du Charaktere nach oder zusätzlich dazu, füge sie so ein <b>, Username</b>. Achte aber darauf, dass es korrekt geschrieben wurde.</span> </td>
+</tr>
+
+// iptracker_ort
+<tr>
+<td class="trow1" width="20%"><strong>Ort:</strong></td>
+<td class="trow1"> <input type="text" class="textbox" name="ort" size="40" maxlength="1155" value="{$ort}" />
+	<div class="smalltext">Gib hier den Ort an, an dem die Szene spielt.</div></td>
+</tr>
+
+// iptracker_profile
+<table width="100%">
+<tr><td width="50%" class="thead"><h1>{$aktive} Aktive Szenen</h1></td>
+<td width="50%" class="thead"><h1>{$beendete} Beendete Szenen</h1></td></tr>
+<tr><td valign="top"><div class="ingamescene"><table width="100%">{$inplay}</table></div></td> <td valign="top"><div class="ingamescene"><table width="100%">{$archiv}</table></div></td></tr>
+</table>
+
+// iptracker_profile_bit
+<tr>
+<td class="trow1" align="center"><div style="padding: 4px;"><div class="ingamelink">{$szenen['threadprefix']} {$szenen['subject']}</div>
+<i class="fa fa-users" aria-hidden="true"></i> {$szenen['spieler']} <br />
+		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen['datum']} {$szenen['ip_time']}<br />
+	<i class="fa fa-map-signs" aria-hidden="true"></i> {$szenen['ort']}</div>
+	</td></tr>
+  
+  // iptracker_showthread
+  <tr><td class="trow1" align="center">
+				<div> {$thread['spieler']}  {$thread['datum']} {$thread['ort']}
+				</div>
+	</td></tr>
