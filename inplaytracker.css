@@ -1,0 +1,38 @@
+.ingamescene{
+	height: 550px; 
+	overflow: auto; 
+	
+}
+.ingamelink{
+font-family: 'Titillium Web', sans-serif;
+font-size: 13px;
+text-transform: uppercase;
+color: #412814;
+text-align: center;
+font-weight: bold;
+border-bottom: 4px solid #ECEBD9;
+}
+
+.ingamelink:before{
+color: #B79149;
+	font-style: italic;
+}
+.ingamelink a{
+color: #412814;
+}
+
+.lastpost_title {
+	text-transform: lowercase;
+	font-size: 15px;
+	padding-right: 4px;
+	color: #412814;
+	text-align: right;
+	font-family: 'Titillium Web', sans-serif;
+	border-bottom: 4px solid #ECEBD9;
+	font-weight: bold;
+}
+
+.lastpost_title a {
+	color: #412814;
+}
+
