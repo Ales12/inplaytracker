@@ -11,6 +11,7 @@ if(!defined("IN_MYBB"))
 /*
  * Die hooks sind wie immer hier, wo auch sonst....
  */
+
 //Newthread Hooks
 $plugins->add_hook("newthread_start", "ip_newscene");
 $plugins->add_hook("newthread_do_newthread_end", "ip_newscene_do");
@@ -56,9 +57,9 @@ function iptracker_install()
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `month` varchar(10) NOT NULL AFTER `day`;");
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `year` varchar(10) NOT NULL AFTER `month`;");
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ort` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `year`;");
-
-    //Wann wurde die Meldung für einen bestimmten Charakter ausgeblendet? (0 Meldung wird angezeigt, 1 Meldung nicht anzeigen.)
+    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ip_time` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `ort`;");
     $db->add_column("users", "iptracker_pn", "INT(10) DEFAULT NULL");
+
 
 
     //Einstellungen
@@ -75,8 +76,8 @@ function iptracker_install()
 
     $gid = $db->insert_query("settinggroups", $setting_group);
 
-
-    $setting_array = array(
+	
+	 $setting_array = array(
         'name' => 'inplay_id',
         'title' => 'Kategorien ID',
         'description' => 'Gib hier die ID deiner Inplaykategorie an.',
@@ -88,7 +89,7 @@ function iptracker_install()
     $db->insert_query('settings', $setting_array);
 
     $setting_array = array(
-        'name' => 'archiv_id',
+       'name' => 'archiv_id',
         'title' => 'Archiv ID',
         'description' => 'Gib hier die ID deines Archivs an.',
         'optionscode' => 'forumselectsingle ',
@@ -96,7 +97,7 @@ function iptracker_install()
         'disporder' => 2,
         "gid" => (int)$gid
     );
-    $db->insert_query('settings', $setting_array);
+	    $db->insert_query('settings', $setting_array);
     rebuild_settings();}
 
 function iptracker_is_installed()
@@ -137,6 +138,11 @@ function iptracker_uninstall()
     if($db->field_exists("ort", "threads"))
     {
         $db->drop_column("threads", "ort");
+    }
+
+    if($db->field_exists("ip_time", "threads"))
+    {
+        $db->drop_column("threads", "ip_time");
     }
 
     if($db->field_exists("iptracker_pn", "users"))
