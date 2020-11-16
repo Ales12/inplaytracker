@@ -11,10 +11,11 @@ if(!defined("IN_MYBB"))
 /*
  * Die hooks sind wie immer hier, wo auch sonst....
  */
-
 //Newthread Hooks
 $plugins->add_hook("newthread_start", "ip_newscene");
 $plugins->add_hook("newthread_do_newthread_end", "ip_newscene_do");
+//bei Antwort
+$plugins->add_hook("newreply_do_newreply_end", "ip_reply_do");
 //Edit Hooks
 $plugins->add_hook("editpost_end", "ip_editscene");
 $plugins->add_hook("editpost_do_editpost_end", "ip_editscene_do");
@@ -55,7 +56,11 @@ function iptracker_install()
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `month` varchar(10) NOT NULL AFTER `day`;");
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `year` varchar(10) NOT NULL AFTER `month`;");
     $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ort` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `year`;");
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ip_time` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `ort`;");
+
+    //Wann wurde die Meldung für einen bestimmten Charakter ausgeblendet? (0 Meldung wird angezeigt, 1 Meldung nicht anzeigen.)
+    $db->add_column("users", "iptracker_pn", "INT(10) DEFAULT NULL");
+
+
     //Einstellungen
     /*
    * nun kommen die Einstellungen
@@ -134,10 +139,11 @@ function iptracker_uninstall()
         $db->drop_column("threads", "ort");
     }
 
-    if($db->field_exists("ip_time", "threads"))
+    if($db->field_exists("iptracker_pn", "users"))
     {
-        $db->drop_column("threads", "ip_time");
+        $db->drop_column("users", "iptracker_pn");
     }
+
     $db->query("DELETE FROM ".TABLE_PREFIX."settinggroups WHERE name='iptracker'");
     $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='inplay_id'");
     $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='archiv_id'");
@@ -164,7 +170,7 @@ function ip_newscene(){
     $usergruppe = array(7);
     $forum['parentlist'] = ",".$forum['parentlist'].",";
     if(preg_match("/,$ipforum,/i", $forum['parentlist'])){
-        if($mybb->input['previewpost'] || $post_errors)
+			if($mybb->input['previewpost'] || $post_errors)
         {
             $spieler = htmlspecialchars($mybb->get_input('spieler'));
             $day = $mybb->input['day'];
@@ -191,6 +197,8 @@ function ip_newscene(){
 //und jetzt mach, was du machen sollst
 function ip_newscene_do(){
     global $db, $mybb, $templates, $tid, $forum;
+    require_once MYBB_ROOT . "inc/datahandlers/pm.php";
+    $pmhandler = new PMDataHandler();
 
     $ipforum = $mybb->settings['inplay_id'];
     $forum['parentlist'] = ",".$forum['parentlist'].",";
@@ -205,6 +213,37 @@ function ip_newscene_do(){
            ");
             $spielername = $db->fetch_field($user, "username");
             $spieler[] = $spielername;
+
+            //Wenn Inplaytracker PN aktiv ist.
+
+                $uid_query = $db->query("SELECT uid, username, iptracker_pn 
+          FROM ".TABLE_PREFIX."users 
+          WHERE username = '".$username."'
+           ");
+                $row = $db->fetch_array($uid_query);
+
+                $charaname = $row['username'];
+                $uid = $row['uid'];
+                $from_uid = $mybb->user['uid'];
+                if($row['iptracker_pn'] == 1){
+                if($mybb->user['username'] != $charaname){
+                    $pm_change = array(
+                        "subject" => "Ich habe eine Szene eröffnet",
+                        "message" => "Hallo {$charaname}, <br /> Ich habe eine Szene eröffnet. Du findest sie <a href='showthread.php?tid={$tid}' target='_blank'>hier</a>.",
+                        //From: Wer schreibt die PN
+                        "fromid" => $from_uid,
+                        //to: an wen geht die pn
+                        "toid" => $uid
+                    );
+                    // $pmhandler->admin_override = true;
+                    $pmhandler->set_data($pm_change);
+                    if (!$pmhandler->validate_pm())
+                        return false;
+                    else {
+                        $pmhandler->insert_pm();
+                    }
+                }
+            }
         }
 
         $charakter = implode(", ", $spieler);
@@ -227,6 +266,52 @@ function ip_newscene_do(){
     }
 }
 
+function ip_reply_do(){
+    global $mybb, $forum, $templates, $db, $tid, $thread;
+    require_once MYBB_ROOT . "inc/datahandlers/pm.php";
+    $pmhandler = new PMDataHandler();
+
+
+    if(!preg_match("/,221,/i", $forum['parentlist'])) {
+        $charas = explode(", ", $thread['spieler']);
+        $subject = $thread['subject'];
+
+
+        foreach ($charas as $chara) {
+
+            $uid_query = $db->query("SELECT uid, username,iptracker_pn 
+          FROM ".TABLE_PREFIX."users 
+          WHERE username = '".$chara."'
+           ");
+            $row = $db->fetch_array($uid_query);
+
+            $charaname = $row['username'];
+            $uid = $row['uid'];
+            $from_uid = $mybb->user['uid'];
+            $from_uid = $mybb->user['uid'];
+            if($row['iptracker_pn'] == 1) {
+                if ($mybb->user['username'] != $charaname) {
+                    $pm_change = array(
+                        "subject" => "Ich habe auf unser Szene '{$subject}' geantwortet",
+                        "message" => "Hallo {$charaname}, <br /> Ich habe auf unsere Szene eröffnet. Du findest meine Antwort <a href='showthread.php?tid={$tid}&action=lastpost' target='_blank'>hier</a>.",
+                        //From: Wer schreibt die PN
+                        "fromid" => $from_uid,
+                        //to: an wen geht die pn
+                        "toid" => $uid
+                    );
+                    // $pmhandler->admin_override = true;
+                    $pmhandler->set_data($pm_change);
+                    if (!$pmhandler->validate_pm())
+                        return false;
+                    else {
+                        $pmhandler->insert_pm();
+                    }
+                }
+            }
+        }
+    }
+}
+
 function ip_editscene(){
     global $mybb, $forum, $templates, $datum, $ort, $mitspieler, $db, $spieler, $post_errors, $thread, $day, $month, $year, $days, $edit_month, $edit_year, $ip_time,  $month_select  ;
 
@@ -246,7 +331,7 @@ function ip_editscene(){
                 $month= htmlspecialchars($mybb->get_input('month'));
 
 
-                $year = htmlspecialchars($mybb->get_input('year'));
+                    $year = htmlspecialchars($mybb->get_input('year'));
                 $ip_time = htmlspecialchars($mybb->get_input('ip_time'));
                 $ort = htmlspecialchars($mybb->get_input('ort'));
             } else{
@@ -393,7 +478,7 @@ function ipscenes()
 
                     $postdate = my_date("relative", $szenen['lastpost']);
 
-
+                    
 
                     $szenen['lastposter'] = build_profile_link($szenen['lastposter'], $szenen['lastposteruid']);
 
@@ -579,23 +664,23 @@ function ip_showthread(){
     $archiv_id = $mybb->settings['archiv_id'];
     $forum['parentlist'] = ",".$forum['parentlist'].",";
 
-    if(preg_match("/,$inplay_id,/i", $forum['parentlist']) OR preg_match("/,$archiv_id,/i", $forum['parentlist'])) {
-        if($thread['spieler'] != ''){
+        if(preg_match("/,$inplay_id,/i", $forum['parentlist']) OR preg_match("/,$archiv_id,/i", $forum['parentlist'])) {
+            if($thread['spieler'] != ''){
             $thread['spieler'] = "<i class=\"fa fa-group\" aria-hidden=\"true\"></i> ".$thread['spieler'];
-        }
-        if($thread['day'] != ''){
-            $thread['datum'] = $thread['day'] . "." . $thread['month'] . "." . $thread['year'];
-            $thread['datum'] = "<i class=\"fa fa-calendar\" aria-hidden=\"true\"></i> ".$thread['datum'];
-        }
-        if($thread['ort'] != ''){
-            $thread['ort'] = "<i class=\"fa fa-map-signs\" aria-hidden=\"true\"></i> ".$thread['ort'];
-        }
+            }
+            if($thread['day'] != ''){
+                $thread['datum'] = $thread['day'] . "." . $thread['month'] . "." . $thread['year'];
+                $thread['datum'] = "<i class=\"fa fa-calendar\" aria-hidden=\"true\"></i> ".$thread['datum'];
+            }
+            if($thread['ort'] != ''){
+                $thread['ort'] = "<i class=\"fa fa-map-signs\" aria-hidden=\"true\"></i> ".$thread['ort'];
+            }
 
-        if($thread['ip_time'] != ''){
-            $thread['ip_time'] = "<i class=\"fas fa-clock\"></i> {$thread['ip_time']}";
+            if($thread['ip_time'] != ''){
+                $thread['ip_time'] = "<i class=\"fas fa-clock\"></i> {$thread['ip_time']}";
+            }
+            eval("\$tracker_thread = \"" . $templates->get ("iptracker_showthread") . "\";");
         }
-        eval("\$tracker_thread = \"" . $templates->get ("iptracker_showthread") . "\";");
-    }
 
 }
 
@@ -649,4 +734,50 @@ function ip_location_activity($plugin_array) {
     }
 
     return $plugin_array;
+}
+
+$plugins->add_hook('usercp_options_start', 'ip_edit_options');
+function ip_edit_options() {
+    global $db, $mybb, $templates, $pn_check, $tracker_pn, $pn_check_all ;
+
+    $ip_pn = $mybb->user['iptracker_pn'];
+    $ip_pn_all = $mybb->user['iptracker_pn_all'];
+    $pn_check = '';
+    if($ip_pn == 1){
+        $pn_check = 'checked="checked"';
+    }
+    if($ip_pn_all == 1){
+        $pn_check_all = 'checked="checked"';
+    }
+
+    eval("\$tracker_pn .=\"".$templates->get("iptracker_pn_usercp")."\";");
+}
+
+//User CP: änderungen im ucp speichern
+//bei Wunsch des Users, Einstellung für alle Charaktere übernehmen
+$plugins->add_hook('usercp_do_options_start', 'ip_edit_options_do');
+function ip_edit_options_do() {
+    global $mybb, $db, $templates;
+    //Was hat der User eingestellt?
+    $ip_pn = $mybb->get_input('iptracker_pn', MyBB::INPUT_INT);
+    $ip_pn_all = $mybb->input['iptracker_pn_all'];
+
+    //Wer ist online, Wer ist Hauptaccount.
+    $this_user = intval($mybb->user['uid']);
+    $as_uid = intval($mybb->user['as_uid']);
+//Soll für alle Charaktere übernommen werden oder nicht?
+    if($ip_pn_all == 1) {
+        //Ja, alle raussuchen
+        if($as_uid == 0) {
+            $id = intval($mybb->user['uid']);
+        } else {
+            $id = intval($mybb->user['as_uid']);
+        }
+        //speichern
+        $db->query("UPDATE ".TABLE_PREFIX."users SET iptracker_pn=".$ip_pn." WHERE uid=".$id." OR as_uid=".$id."");
+
+    } else {
+        //nur für aktuellen Charakter speichern
+        $db->query("UPDATE ".TABLE_PREFIX."users SET iptracker_pn=".$ip_pn." WHERE uid=".$this_user."");
+    }
 }
