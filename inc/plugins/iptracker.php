@@ -52,11 +52,11 @@ function iptracker_install()
 {
     global $db;
 //Threadtabelle
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `spieler` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `replies`;");
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `day` varchar(10) NOT NULL AFTER `spieler`;");
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `month` varchar(10) NOT NULL AFTER `day`;");
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `year` varchar(10) NOT NULL AFTER `month`;");
-    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ort` varchar(400) CHARACTER SET utf8 NOT NULL AFTER `year`;");
+    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `spieler` varchar(400) CHARACTER SET utf8 NOT NULL;");
+    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `date` varchar(400)  NOT NULL;");
+    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ort` varchar(400) CHARACTER SET utf8 NOT NULL ;");
+    $db->query("ALTER TABLE `".TABLE_PREFIX."threads` ADD `ip_time` varchar(10) NOT NULL;");
+
 
     //Wann wurde die Meldung für einen bestimmten Charakter ausgeblendet? (0 Meldung wird angezeigt, 1 Meldung nicht anzeigen.)
     $db->add_column("users", "iptracker_pn", "INT(10) DEFAULT NULL");
@@ -98,68 +98,13 @@ function iptracker_install()
         "gid" => (int)$gid
     );
     $db->insert_query('settings', $setting_array);
-    rebuild_settings();}
+    rebuild_settings();
 
-function iptracker_is_installed()
-{
-    global $db;
-    if($db->field_exists("spieler", "threads"))
-    {
-        return true;
-    }
-    return false;
-}
-
-function iptracker_uninstall()
-{
-    global $db;
-
-    //threadstabelle
-    if($db->field_exists("spieler", "threads"))
-    {
-        $db->drop_column("threads", "spieler");
-    }
-
-    if($db->field_exists("day", "threads"))
-    {
-        $db->drop_column("threads", "day");
-    }
-
-    if($db->field_exists("month", "threads"))
-    {
-        $db->drop_column("threads", "month");
-    }
-
-    if($db->field_exists("year", "threads"))
-    {
-        $db->drop_column("threads", "year");
-    }
-
-    if($db->field_exists("ort", "threads"))
-    {
-        $db->drop_column("threads", "ort");
-    }
-
-    if($db->field_exists("iptracker_pn", "users"))
-    {
-        $db->drop_column("users", "iptracker_pn");
-    }
-
-    $db->query("DELETE FROM ".TABLE_PREFIX."settinggroups WHERE name='iptracker'");
-    $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='ip_inplay_id'");
-    $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='ip_archive_id'");
-
-    $db->delete_query("templates", "title LIKE '%iptracker%'");
-}
-
-function iptracker_activate()
-{
-    global $db;
     $insert_array = array(
         'title' => 'iptracker_bit_misc',
         'template' => $db->escape_string('<tr><td class="trow1" align="center">{$status}</td>
 	<td class="trow1" align="center"><i class="fa fa-users" aria-hidden="true"></i> {$szenen[\'spieler\']} <br />
-		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen[\'datum\']} <br />
+		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen[\'datum\']} {$szenen[\'ip_time\']}<br />
 		<i class="fa fa-map-signs" aria-hidden="true"></i> {$szenen[\'ort\']}</td>
 	<td class="trow1" align="center">&raquo; <a href="showthread.php?tid={$szenen[\'tid\']}&pid={$lastpost}#pid{$lastpost}" target="blank">{$szenen[\'subject\']}</a><br />
 		<i class="fa fa-user" aria-hidden="true"></i> {$szenen[\'lastposter\']}<br/>
@@ -170,31 +115,10 @@ function iptracker_activate()
     );
     $db->insert_query("templates", $insert_array);
 
-    $insert_array = array(
-        'title' => 'iptracker_datum',
-        'template' => $db->escape_string('<tr>
-<td class="trow1" width="20%"><strong>Datum &amp; Uhrzeit:</strong></td>
-    <td class="trow1">
-        <table><tr>
-            <td width="50px" align="center">
-       	<input type="number" class="textbox" name="day" value="{$day}" width="10" placeholder="00"></td>
-        <td width="50px" align="center">
-			<input type="number" class="textbox" name="month" value="{$month}" width="10" placeholder="00"></td>
-<td width="70px" align="center">
-<input type="number" class="textbox" name="year" value="{$year}" width="10" placeholder="0000">
-   </td>
-		<td align="center">  <input type="time" name="ip_time" value="{$ip_time}">
-			</td>
-</tr></table></td>
-</tr>'),
-        'sid' => '-1',
-        'version' => '',
-        'dateline' => TIME_NOW
-    );
-    $db->insert_query("templates", $insert_array);
+
     $insert_array = array(
         'title' => 'iptracker_forumdisplay',
-        'template' => $db->escape_string('<div class="smalltext"> {$thread[\'spieler\']} {$thread[\'datum\']} {$thread[\'ort\']}
+        'template' => $db->escape_string('<div class="smalltext"> {$thread[\'spieler\']} {$thread[\'datum\']} {$thread[\'ort\']}{$thread[\'ip_time\']}
 				</div>'),
         'sid' => '-1',
         'version' => '',
@@ -203,7 +127,7 @@ function iptracker_activate()
     $db->insert_query("templates", $insert_array);
     $insert_array = array(
         'title' => 'iptracker_global',
-        'template' => $db->escape_string('<a href="misc.php?action=ipszenen">Deine Szenen</a> ({$alleoffeneszenen}|{$alleszenen})'),
+        'template' => $db->escape_string('<a href="misc.php?action=ipszenen">{$lang->iptracker_global}</a> ({$alleoffeneszenen}|{$alleszenen})'),
         'sid' => '-1',
         'version' => '',
         'dateline' => TIME_NOW
@@ -211,16 +135,16 @@ function iptracker_activate()
     $db->insert_query("templates", $insert_array);
     $insert_array = array(
         'title' => 'iptracker_misc',
-        'template' => $db->escape_string('<html>
+        'template' => $db->escape_string('<<html>
 <head>
-<title>Deine Inplayszenen</title>
+<title>{$lang->iptracker}</title>
 {$headerinclude}
 </head>
 <body>
 {$header}
 <table border="0" cellspacing="{$theme[\'borderwidth\']}" cellpadding="{$theme[\'tablespace\']}" class="tborder">
 <tr>
-<td class="trow2"><h1>Deine Inplayszenen (<i class="fa fa-folder-open" aria-hidden="true"></i> {$alleoffeneszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$alleszenen})</h1></td>
+<td class="trow2"><h1>{$lang->iptracker_misc} (<i class="fa fa-folder-open" aria-hidden="true"></i> {$alleoffeneszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$alleszenen})</h1></td>
 </tr>
 <tr>
 <td class="trow1" align="center">
@@ -238,10 +162,10 @@ function iptracker_activate()
     $db->insert_query("templates", $insert_array);
     $insert_array = array(
         'title' => 'iptracker_misc_bit',
-        'template' => $db->escape_string('<table width="100%"><tr><td colspan="3" class="trow1"><h2>{$row[\'username\']} (<i class="fa fa-folder-open" aria-hidden="true"></i> {$charaoffenszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$charaszenen})</h2></td> </tr>
-	<tr><td class="trow1" width="20%"><strong>Status</strong></td>
-		<td class="trow1" width="40%"><strong>Szeneninformationen</strong></td>
-		<td class="trow1" width="40%"><strong>Letzter Post</strong></td>
+        'template' => $db->escape_string('<table width="100%"><tr><td colspan="3" class="trow1"><h2>{$character} (<i class="fa fa-folder-open" aria-hidden="true"></i> {$charaoffenszenen} | <i class="fa fa-folder" aria-hidden="true"></i> {$charaszenen})</h2></td> </tr>
+	<tr><td class="trow1" width="20%"><strong>{$lang->iptracker_misc_status}</strong></td>
+		<td class="trow1" width="40%"><strong>{$lang->iptracker_misc_infos}</strong></td>
+		<td class="trow1" width="40%"><strong>{$lang->iptracker_misc_lastpost}</strong></td>
 	</tr>
 {$szene}
 </table>'),
@@ -253,7 +177,7 @@ function iptracker_activate()
     $insert_array = array(
         'title' => 'iptracker_mitspieler',
         'template' => $db->escape_string('<tr>
-<td class="trow1" width="20%"><strong>Mitspieler:</strong></td>
+<td class="trow1" width="20%"><strong>{$lang->iptracker_partner}</strong></td>
 <td class="trow1"><span class="smalltext"><input type="text" class="textbox" name="spieler" id="spieler" size="40" maxlength="1155" value="{$spieler}" style="min-width: 347px; max-width: 100%;" /> </span> </td>
 </tr>
 
@@ -312,8 +236,8 @@ if(use_xmlhttprequest == "1")
     $insert_array = array(
         'title' => 'iptracker_mitspieler_edit',
         'template' => $db->escape_string('<tr>
-<td class="trow1" width="20%"><strong>Spieler:</strong></td>
-<td class="trow1"><span class="smalltext"> <input type="text" class="textbox" name="spieler" size="40" maxlength="1155" value="{$spieler}" /> <br /> Trägst du Charaktere nach oder zusätzlich dazu, füge sie so ein <b>, Username</b>. Achte aber darauf, dass es korrekt geschrieben wurde.</span> </td>
+<td class="trow1" width="20%"><strong>{$lang->iptracker_partner}</strong></td>
+<td class="trow1"><span class="smalltext"> <input type="text" class="textbox" name="spieler" size="40" maxlength="1155" value="{$spieler}" /> <br />{$lang->iptracker_partner_edit}</span> </td>
 </tr>'),
         'sid' => '-1',
         'version' => '',
@@ -321,8 +245,20 @@ if(use_xmlhttprequest == "1")
     );
     $db->insert_query("templates", $insert_array);
     $insert_array = array(
-        'title' => 'iptracker_ort',
-        'template' => $db->escape_string('<tr>
+        'title' => 'iptracker_infos',
+        'template' => $db->escape_string('{$mitspieler}
+<tr>
+<td class="trow1" width="20%"><strong>Datum &amp; Uhrzeit:</strong></td>
+    <td class="trow1">
+        <table><tr>
+<td align="center">
+<input type="date" class="textbox" name="date" value="{$date}" >
+   </td>
+		<td align="center">  <input type="time" name="ip_time" value="{$ip_time}" class="textbox">
+			</td>
+</tr></table></td>
+</tr>
+<tr>
 <td class="trow1" width="20%"><strong>Ort:</strong></td>
 <td class="trow1"> <input type="text" class="textbox" name="ort" size="40" maxlength="1155" value="{$ort}" />
 	<div class="smalltext">Gib hier den Ort an, an dem die Szene spielt.</div></td>
@@ -335,8 +271,8 @@ if(use_xmlhttprequest == "1")
     $insert_array = array(
         'title' => 'iptracker_profile',
         'template' => $db->escape_string('<table width="100%">
-<tr><td width="50%" class="thead"><h1>Aktive Szenen ({$aktive})</h1></td>
-<td width="50%" class="thead"><h1>Beendete Szenen({$beendete})</h1></td></tr>
+<tr><td width="50%" class="thead"><h1>{$lang->iptracker_profile_active} ({$aktive})</h1></td>
+<td width="50%" class="thead"><h1>{$lang->iptracker_profile_end} ({$beendete})</h1></td></tr>
 <tr><td><div class="ingamescene"><table width="100%">{$inplay}</table></div></td> <td><div class="ingamescene"><table width="100%">{$archiv}</table></div></td></tr>
 </table>'),
         'sid' => '-1',
@@ -346,10 +282,10 @@ if(use_xmlhttprequest == "1")
     $db->insert_query("templates", $insert_array);
     $insert_array = array(
         'title' => 'iptracker_profile_bit',
-        'template' => $db->escape_string('<tr>
+        'template' => $db->escape_string('<<tr>
 <td class="trow1" align="center"><span class="ingamelink">{$szenen[\'threadprefix\']} {$szenen[\'subject\']}</span><br />
 <i class="fa fa-users" aria-hidden="true"></i> {$szenen[\'spieler\']} <br />
-		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen[\'datum\']} 
+		<i class="fa fa-calendar" aria-hidden="true"></i> {$szenen[\'datum\']}  {$szenen[\'ip_time\']} 
 		<i class="fa fa-map-signs" aria-hidden="true"></i> {$szenen[\'ort\']}</td></tr>'),
         'sid' => '-1',
         'version' => '',
@@ -372,11 +308,11 @@ if(use_xmlhttprequest == "1")
         'title' => 'iptracker_pn_usercp',
         'template' => $db->escape_string('<tr>
 <td valign="top"><input type="checkbox" class="checkbox" name="iptracker_pn" id="iptracker_pn" value="1" {$pn_check} /></td>
-<td><span class="smalltext"><label for="iptracker_pn">Eine PN bei neuen Post?</label></span></td>
+<td><span class="smalltext"><label for="iptracker_pn">{$lang->iptracker_pn_usercp}</label></span></td>
 </tr>
 <tr>
 <td valign="top"><input type="checkbox" class="checkbox" name="iptracker_pn_all" id="iptracker_pn_all" value="1" /></td>
-<td><span class="smalltext"><label for="iptracker_pn_all">Pns für alle Charaktere aktiveren/deaktivieren?</label></span></td>
+<td><span class="smalltext"><label for="iptracker_pn_all">{$lang->iptracker_pn_usercp_all}</label></span></td>
 </tr>'),
         'sid' => '-1',
         'version' => '',
@@ -384,16 +320,68 @@ if(use_xmlhttprequest == "1")
     );
     $db->insert_query("templates", $insert_array);
 
+}
+
+function iptracker_is_installed()
+{
+    global $db;
+    if($db->field_exists("spieler", "threads"))
+    {
+        return true;
+    }
+    return false;
+}
+
+function iptracker_uninstall()
+{
+    global $db;
+
+    //threadstabelle
+    if($db->field_exists("spieler", "threads"))
+    {
+        $db->drop_column("threads", "spieler");
+    }
+
+    if($db->field_exists("date", "threads"))
+    {
+        $db->drop_column("threads", "date");
+    }
+
+    if($db->field_exists("ort", "threads"))
+    {
+        $db->drop_column("threads", "ort");
+    }
+
+    if($db->field_exists("ip_time", "threads"))
+    {
+        $db->drop_column("threads", "ip_time");
+    }
+
+
+    if($db->field_exists("iptracker_pn", "users"))
+    {
+        $db->drop_column("users", "iptracker_pn");
+    }
+
+    $db->query("DELETE FROM ".TABLE_PREFIX."settinggroups WHERE name='iptracker'");
+    $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='ip_inplay_id'");
+    $db->query("DELETE FROM ".TABLE_PREFIX."settings WHERE name='ip_archive_id'");
+
+    $db->delete_query("templates", "title LIKE '%iptracker%'");
+}
+
+function iptracker_activate()
+{
+    global $db;
+
+
     require MYBB_ROOT."/inc/adminfunctions_templates.php";
     find_replace_templatesets("header_welcomeblock_member", "#".preg_quote('<div class="wrapper">')."#i", '	<div class="wrapper"> {$iptracker}');
     find_replace_templatesets("forumdisplay_thread", "#".preg_quote('{$thread[\'profilelink\']}')."#i", '{$tracker_forumdisplay} {$thread[\'profilelink\']}');
-    find_replace_templatesets("showthread", "#".preg_quote('<tr><td id="posts_container">')."#i", '{$tracker_thread}
-		<tr><td id="posts_container">');
+    find_replace_templatesets("showthread", "#".preg_quote('<tr><td id="posts_container">')."#i", '{$tracker_thread}		<tr><td id="posts_container">');
     find_replace_templatesets("member_profile", "#".preg_quote('{$signature}')."#i", '	{$signature} {$tracker_profile}');
-    find_replace_templatesets("editpost", "#".preg_quote('{$posticons}')."#i", '{$mitspieler}	{$datum} {$ort}
-{$posticons}');
-    find_replace_templatesets("newthread", "#".preg_quote('{$posticons}')."#i", '{$mitspieler}	{$datum} {$ort}
-	{$posticons}');
+    find_replace_templatesets("editpost", "#".preg_quote('{$posticons}')."#i", '{$ip_infos}{$posticons}');
+    find_replace_templatesets("newthread", "#".preg_quote('{$posticons}')."#i", '{$ip_infos}	{$posticons}');
     find_replace_templatesets("usercp_options", "#".preg_quote('{$calendaroptions}')."#i", '{$tracker_pn}
 {$calendaroptions}');
 }
@@ -401,22 +389,23 @@ if(use_xmlhttprequest == "1")
 function iptracker_deactivate()
 {
     global $db;
-    $db->delete_query("templates", "title LIKE '%iptracker%'");
+
     require MYBB_ROOT."/inc/adminfunctions_templates.php";
-    find_replace_templatesets("header_welcomeblock_member", "#".preg_quote('| {$iptracker}')."#i", '', 0);
+    find_replace_templatesets("header_welcomeblock_member", "#".preg_quote('{$iptracker}')."#i", '', 0);
     find_replace_templatesets("showthread", "#".preg_quote('{$tracker_thread}')."#i", '', 0);
     find_replace_templatesets("forumdisplay_thread", "#".preg_quote('{$tracker_forumdisplay}')."#i", '', 0);
     find_replace_templatesets("member_profile", "#".preg_quote('{$tracker_profile}')."#i", '', 0);
-    find_replace_templatesets("editpost", "#".preg_quote('{$mitspieler}	{$datum} {$ort}')."#i", '', 0);
-    find_replace_templatesets("newthread", "#".preg_quote('{$mitspieler}	{$datum} {$ort}')."#i", '', 0);
+    find_replace_templatesets("editpost", "#".preg_quote('{$ip_infos}')."#i", '', 0);
+    find_replace_templatesets("newthread", "#".preg_quote('{$ip_infos}')."#i", '', 0);
     find_replace_templatesets("usercp_options", "#".preg_quote('{$tracker_pn}')."#i", '', 0);
 
 }
 
 //wenn neue Szene erstellt wird
 function ip_newscene(){
-    global $mybb, $forum, $templates, $day, $month, $year, $ort, $ip_time, $datum, $mitspieler, $db, $spieler, $post_errors, $thread ;
-
+    global $mybb, $forum, $templates, $date, $month, $year, $ort, $ip_time, $datum, $mitspieler, $db, $spieler, $post_errors, $thread, $ip_infos, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
     //Zieht sich erstmal die Einstellung
     $ipforum = $mybb->settings['ip_inplay_id'];
     //Usergruppen, die nicht beachtet werden sollen
@@ -426,23 +415,18 @@ function ip_newscene(){
         if($mybb->input['previewpost'] || $post_errors)
         {
             $spieler = htmlspecialchars($mybb->get_input('spieler'));
-            $day = $mybb->input['day'];
-            $month = $mybb->input['month'];
-            $year = $mybb->input['year'];
+            $date = $mybb->input['date'];
             $ip_time = $mybb->get_input('ip_time');
             $ort = htmlspecialchars($mybb->get_input('ort'));
         } else{
             $spieler = htmlspecialchars($thread['spieler']);
-            $day = $thread['day'];
-            $month = $thread['month'];
-            $year = $thread['year'];
+            $date = $thread['date'];
             $ip_time = $thread['ip_time'];
             $ort = htmlspecialchars($thread['ort']);
         }
 
         eval("\$mitspieler = \"".$templates->get("iptracker_mitspieler")."\";");
-        eval("\$datum = \"".$templates->get("iptracker_datum")."\";");
-        eval("\$ort = \"".$templates->get("iptracker_ort")."\";");
+        eval("\$ip_infos = \"".$templates->get("iptracker_infos")."\";");
     }
 
 }
@@ -460,6 +444,8 @@ function ip_newscene_do(){
         $usernames = array_map("trim", $usernames);
         $spieler = array();
         foreach ($usernames as $username) {
+
+            $username = $db->escape_string($username);
             $user = $db->query("SELECT username 
           FROM ".TABLE_PREFIX."users 
           WHERE username = '".$username."'
@@ -500,17 +486,13 @@ function ip_newscene_do(){
         }
 
         $charakter = implode(", ", $spieler);
-        $day = $_POST['day'];
-        $month = $_POST['month'];
-        $year = $_POST['year'];
+        $date = $_POST['date'];
         $ort = $_POST['ort'];
         $ip_time = $_POST['ip_time'];
 
         $new_array = array(
             "spieler" => $db->escape_string($charakter),
-            "day" => $db->escape_string($day),
-            "month" => $db->escape_string($month),
-            "year" => $db->escape_string($year),
+            "date" => $db->escape_string($date),
             "ip_time" => $db->escape_string($ip_time),
             "ort" => $db->escape_string($ort)
         );
@@ -520,18 +502,22 @@ function ip_newscene_do(){
 }
 
 function ip_reply_do(){
-    global $mybb, $forum, $templates, $db, $tid, $thread;
+    global $mybb, $forum, $templates, $db, $tid, $thread, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
     require_once MYBB_ROOT . "inc/datahandlers/pm.php";
     $pmhandler = new PMDataHandler();
 
+    $ipforum = $mybb->settings['ip_inplay_id'];
 
-    if(!preg_match("/,221,/i", $forum['parentlist'])) {
+    $forum['parentlist'] = ",".$forum['parentlist'].",";
+    if(preg_match("/,$ipforum,/i", $forum['parentlist'])){
         $charas = explode(", ", $thread['spieler']);
         $subject = $thread['subject'];
 
 
         foreach ($charas as $chara) {
-
+            $chara = $db->escape_string($chara);
             $uid_query = $db->query("SELECT uid, username,iptracker_pn 
           FROM ".TABLE_PREFIX."users 
           WHERE username = '".$chara."'
@@ -566,39 +552,35 @@ function ip_reply_do(){
 }
 
 function ip_editscene(){
-    global $mybb, $forum, $templates, $datum, $ort, $mitspieler, $db, $spieler, $post_errors, $thread, $day, $month, $year, $days, $edit_month, $edit_year, $ip_time,  $month_select  ;
+    global $mybb, $forum, $templates, $ip_infos, $ort, $mitspieler, $db, $spieler, $post_errors, $thread, $date, $month, $year, $dates, $edit_month, $edit_year, $ip_time,  $month_select, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
 
 //Zieht sich erstmal die Einstellung
     $ipforum = $mybb->settings['ip_inplay_id'];
-    $archiv_id = $mybb->settings['archiv_id'];
+    $archiv_id = $mybb->settings['ip_archive_id'];
+
     $forum['parentlist'] = ",".$forum['parentlist'].",";
     if(preg_match("/,$ipforum,/i", $forum['parentlist']) OR preg_match("/,$archiv_id,/i", $forum['parentlist'])) {
         $pid = $mybb->get_input ('pid', MyBB::INPUT_INT);
+
         if ($thread['firstpost'] == $pid) {
             if($mybb->input['previewpost'] || $post_errors)
             {
 
                 $spieler = htmlspecialchars($mybb->get_input('spieler'));
-                $day= htmlspecialchars($mybb->get_input('day'));
-
-                $month= htmlspecialchars($mybb->get_input('month'));
-
-
-                $year = htmlspecialchars($mybb->get_input('year'));
+                $date= htmlspecialchars($mybb->get_input('date'));
                 $ip_time = htmlspecialchars($mybb->get_input('ip_time'));
                 $ort = htmlspecialchars($mybb->get_input('ort'));
             } else{
                 $spieler = htmlspecialchars($thread['spieler']);
-                $day = $thread['day'];
-                $month = $thread['month'];
-                $year = $thread['year'];
+                $date = $thread['date'];
                 $ip_time = $thread['ip_time'];
                 $ort = htmlspecialchars($thread['ort']);
             }
 
-            eval("\$mitspieler = \"" . $templates->get("iptracker_mitspieler_edit") . "\";");
-            eval("\$datum = \"" . $templates->get("iptracker_datum") . "\";");
-            eval("\$ort = \"" . $templates->get("iptracker_ort") . "\";");
+            eval("\$mitspieler = \"".$templates->get("iptracker_mitspieler_edit")."\";");
+            eval("\$ip_infos = \"".$templates->get("iptracker_infos")."\";");
         }
     }
 }
@@ -608,27 +590,21 @@ function ip_editscene_do(){
     global $db, $mybb, $templates, $tid, $forum, $thread;
 
     $ipforum = $mybb->settings['ip_inplay_id'];
-    $archiv_id = $mybb->settings['archiv_id'];
+    $archiv_id = $mybb->settings['ip_archive_id'];
     $forum['parentlist'] = ",".$forum['parentlist'].",";
     if(preg_match("/,$ipforum,/i", $forum['parentlist']) OR preg_match("/,$archiv_id,/i", $forum['parentlist'])) {
         $pid = $mybb->get_input ('pid', MyBB::INPUT_INT);
+
         if ($thread['firstpost'] == $pid) {
-
-
-            $charakter = $mybb->input['spieler'];
-
-            $day = $mybb->input['day'];
-            $month = $mybb->input['month'];
-            $year = $mybb->input['year'];
+            $charakter = htmlspecialchars($mybb->input['spieler']);
+            $date = $mybb->input['date'];
             $ip_time = $mybb->input['ip_time'];
             $ort = $mybb->input['ort'];
 
 
             $new_array = array(
                 "spieler" => $db->escape_string($charakter),
-                "day" => $db->escape_string($day),
-                "month" => $db->escape_string($month),
-                "year" => $db->escape_string($year),
+                "date" => $db->escape_string($date),
                 "ip_time" => $db->escape_string($ip_time),
                 "ort" => $db->escape_string($ort)
             );
@@ -641,7 +617,9 @@ function ip_editscene_do(){
 //Übersicht der Inplayszenen
 function ipscenes()
 {
-    global $mybb, $templates, $lang, $header, $headerinclude, $footer, $db, $page,$szene, $spieler, $szenen_bit, $lastpost, $postdate,  $status, $charaszenen, $charaoffenszenen, $alleoffeneszenen, $alleszenen, $szene_link ;
+    global $mybb, $templates, $lang, $header, $headerinclude, $footer, $character, $db, $page,$szene, $spieler, $szenen_bit, $lastpost, $postdate,  $status, $charaszenen, $charaoffenszenen, $alleoffeneszenen, $alleszenen, $szene_link, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
 
     if ($mybb->get_input ('action') == 'ipszenen') {
         // Do something, for example I'll create a page using the hello_world_template
@@ -681,7 +659,7 @@ function ipscenes()
                 $charaszenen = 0;
 
                 //jetzt ziehen wir uns noch die Szenena
-                $select2 = $db->query("SELECT *, t.lastposter, t.lastpost, t.year, t.spieler, t.month, t.day, t.subject, t.ort, t.lastposteruid, p.pid
+                $select2 = $db->query("SELECT *, t.lastposter, t.lastpost, t.date, t.spieler, t.subject, t.ort, t.lastposteruid, p.pid
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.lastpost = p.dateline 
@@ -712,7 +690,6 @@ function ipscenes()
                     }
 
 
-
                     if(empty($prefix)) {
                         if ($next == $spieler) {
                             $status = "<center><i class=\"fa fa-star\" aria-hidden=\"true\"></i> <span style=\"text-transform: uppercase; font-size: 12px; font-weight: bold;\">DU BIST DRAN!</span></center>";
@@ -727,11 +704,32 @@ function ipscenes()
                     }
 
                     $charaszenen++;
-                    $szenen['datum'] = $szenen['day'] . "." . $szenen['month'] . "." . $szenen['year'];
+
+                    $szenen['date'] = strtotime($szenen['date']);
+                    $szenen['datum'] = date("d.m.Y", $szenen['date']);
+                    if(!empty($szenen['ip_time'])){
+                        $szenen['ip_time'] = "(um ".$szenen['ip_time'].")";
+                    }
 
                     $postdate = my_date("relative", $szenen['lastpost']);
 
+                    $charas = explode(", ", $szenen['spieler']);
+                    $charalist = array();
+                    foreach ($charas as $charaname) {
+                        $charaname = $db->escape_string($charaname);
+                        $chara_query = $db->simple_select("users", "*", "username ='$charaname'");
+                        $charaktername = $db->fetch_array($chara_query);
+                        if (!empty($charaktername)) {
+                            $username = format_name($charaktername['username'], $charaktername['usergroup'], $charaktername['displaygroup']);
+                            $chara = build_profile_link($username, $charaktername['uid']);
+                        } else {
+                            $chara = $charaname;
+                        }
+                        array_push($charalist, $chara);
+                    }
 
+                    //lasst uns die Charas wieder zusammenkleben :D
+                    $szenen['spieler']= implode(", ", $charalist);
 
                     $szenen['lastposter'] = build_profile_link($szenen['lastposter'], $szenen['lastposteruid']);
 
@@ -756,8 +754,9 @@ function ipscenes()
 }
 
 function ip_global(){
-    global $mybb, $db, $templates, $iptracker, $alleszenen, $alleoffeneszenen, $iptracker2;
-
+    global $mybb, $db, $templates, $iptracker, $alleszenen, $alleoffeneszenen, $iptracker2, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
     //Unser  ipforum
     $ipforum = $mybb->settings['ip_inplay_id'];
 
@@ -784,7 +783,7 @@ function ip_global(){
 
 
         //jetzt ziehen wir uns noch die Szenen
-        $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.year, t.spieler, t.month, t.day, t.subject, t.ort, t.lastposteruid, tp.prefix
+        $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.subject, t.ort, t.lastposteruid, tp.prefix
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.lastpost = p.dateline 
@@ -826,11 +825,12 @@ function ip_global(){
 }
 
 function ip_profile(){
-    global $db, $mybb, $templates, $tracker_profile, $archiv, $inplay, $memprofile;
-
+    global $db, $mybb, $templates, $tracker_profile, $archiv, $inplay, $memprofile, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
     //Forenids
     $ip_inplay_id = $mybb->settings['ip_inplay_id'];
-    $archiv_id = $mybb->settings['archiv_id'];
+    $archiv_id = $mybb->settings['ip_archive_id'];
 
     //Userid
     $charakter = $db->escape_string($memprofile['username']);
@@ -840,7 +840,7 @@ function ip_profile(){
     $aktive = 0;
     $beendete = 0;
     //jetzt ziehen wir uns noch die Inplay Szenen
-    $select = $db->query ("SELECT t.lastposter, t.lastpost, t.year, t.spieler, t.month, t.day, t.ip_time, t.subject, t.ort, t.lastposteruid, t.tid, displaystyle
+    $select = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time, t.subject, t.ort, t.lastposteruid, t.tid, any_value(p.pid), displaystyle
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.tid = p.tid 
@@ -854,20 +854,38 @@ function ip_profile(){
         AND t.visible='1'
 		AND t.spieler != ''
         GROUP BY t.tid
-        ORDER BY t.year desc, t.month desc, t.day desc, t.subject asc
+        ORDER BY t.date desc, t.subject asc
        ");
 
 
     while ($szenen = $db->fetch_array ($select)) {
         $aktive++;
-        $szenen['datum'] = $szenen['day'] . "." . $szenen['month'] . "." . $szenen['year'];
+        $szenen['date'] = strtotime($szenen['date']);
+        $szenen['datum'] = date("d.m.Y", $szenen['date']);
 
-        if(!empty($szenen['ip_time'])){
+        if($szenen['ip_time'] != '00:00:00'){
             $szenen['ip_time'] = "(um ".$szenen['ip_time'].")";
         }
 
         $prefix = $szenen['displaystyle'];
 
+        $charas = explode(", ", $szenen['spieler']);
+        $charalist = array();
+        foreach ($charas as $charaname) {
+            $charaname = $db->escape_string($charaname);
+            $chara_query = $db->simple_select("users", "*", "username ='$charaname'");
+            $charaktername = $db->fetch_array($chara_query);
+            if (!empty($charaktername)) {
+                $username = format_name($charaktername['username'], $charaktername['usergroup'], $charaktername['displaygroup']);
+                $chara = build_profile_link($username, $charaktername['uid']);
+            } else {
+                $chara = $charaname;
+            }
+            array_push($charalist, $chara);
+        }
+
+        //lasst uns die Charas wieder zusammenkleben :D
+        $szenen['spieler']= implode(", ", $charalist);
         $szenen['subject'] = "{$prefix} <a href=\"showthread.php?tid={$szenen['tid']}\" target=\"blank\">{$szenen['subject']}</a>";
         eval("\$inplay .= \"" . $templates->get ("iptracker_profile_bit") . "\";");
 
@@ -875,7 +893,7 @@ function ip_profile(){
 
 
     //jetzt ziehen wir uns noch die Archiv Szenen
-    $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.year, t.spieler, t.month, t.day, t.ip_time ,t.subject, t.ort, t.lastposteruid, t.tid,displaystyle
+    $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time ,t.subject, t.ort, t.lastposteruid, t.tid, any_value(p.pid), displaystyle
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.tid = p.tid 
@@ -889,18 +907,37 @@ function ip_profile(){
         AND t.visible='1'
 		AND t.spieler != ''
         GROUP BY t.tid
-        ORDER BY t.year desc, t.month desc, t.day desc, t.subject asc
+        ORDER BY t.date desc, t.subject asc
        ");
 
 
     while ($szenen = $db->fetch_array ($select2)) {
         $beendete++;
-        $szenen['datum'] = $szenen['day'] . "." . $szenen['month'] . "." . $szenen['year'];
-        if(!empty($szenen['ip_time'])){
+        $szenen['date'] = strtotime($szenen['date']);
+        $szenen['datum'] = date("d.m.Y", $szenen['date']);
+        if($szenen['ip_time'] != '00:00:00'){
             $szenen['ip_time'] = "(um ".$szenen['ip_time'].")";
         }
 
         $prefix = $szenen['displaystyle'];
+
+        $charas = explode(", ", $szenen['spieler']);
+        $charalist = array();
+        foreach ($charas as $charaname) {
+            $charaname = $db->escape_string($charaname);
+            $chara_query = $db->simple_select("users", "*", "username ='$charaname'");
+            $charaktername = $db->fetch_array($chara_query);
+            if (!empty($charaktername)) {
+                $username = format_name($charaktername['username'], $charaktername['usergroup'], $charaktername['displaygroup']);
+                $chara = build_profile_link($username, $charaktername['uid']);
+            } else {
+                $chara = $charaname;
+            }
+            array_push($charalist, $chara);
+        }
+
+        //lasst uns die Charas wieder zusammenkleben :D
+        $szenen['spieler']= implode(", ", $charalist);
 
         $szenen['subject'] = "{$prefix} <a href=\"showthread.php?tid={$szenen['tid']}\" target=\"blank\">{$szenen['subject']}</a>";
         eval("\$archiv .= \"" . $templates->get ("iptracker_profile_bit") . "\";");
@@ -911,65 +948,107 @@ function ip_profile(){
 }
 
 function ip_showthread(){
-    global $db, $mybb, $templates, $forum, $thread, $tracker_thread;
+    global $db, $mybb, $templates, $forum, $thread, $tracker_thread, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
 
     $ip_inplay_id = $mybb->settings['ip_inplay_id'];
-    $archiv_id = $mybb->settings['archiv_id'];
+    $archiv_id = $mybb->settings['ip_archive_id'];
+
     $forum['parentlist'] = ",".$forum['parentlist'].",";
 
     if(preg_match("/,$ip_inplay_id,/i", $forum['parentlist']) OR preg_match("/,$archiv_id,/i", $forum['parentlist'])) {
         if($thread['spieler'] != ''){
-            $thread['spieler'] = "<i class=\"fa fa-group\" aria-hidden=\"true\"></i> ".$thread['spieler'];
-        }
-        if($thread['day'] != ''){
-            $thread['datum'] = $thread['day'] . "." . $thread['month'] . "." . $thread['year'];
-            $thread['datum'] = "<i class=\"fa fa-calendar\" aria-hidden=\"true\"></i> ".$thread['datum'];
-        }
-        if($thread['ort'] != ''){
-            $thread['ort'] = "<i class=\"fa fa-map-signs\" aria-hidden=\"true\"></i> ".$thread['ort'];
-        }
+            // alle Charas wieder auseinander nehmen
+            $charas = explode(", ", $thread['spieler']);
+            $charalist = array();
+            foreach ($charas as $charaname) {
+                $charaname = $db->escape_string($charaname);
+                $chara_query = $db->simple_select("users", "*", "username ='$charaname'");
+                $charaktername = $db->fetch_array($chara_query);
+                if (!empty($charaktername)) {
+                    $username = format_name($charaktername['username'], $charaktername['usergroup'], $charaktername['displaygroup']);
+                    $chara = build_profile_link($username, $charaktername['uid']);
+                } else {
+                    $chara = $charaname;
+                }
+                array_push($charalist, $chara);
+            }
 
-        if($thread['ip_time'] != ''){
-            $thread['ip_time'] = "<i class=\"fas fa-clock\"></i> {$thread['ip_time']}";
+            //lasst uns die Charas wieder zusammenkleben :D
+            $thread['spieler']= implode(", ", $charalist);
+
+
+            if($thread['date'] != ''){
+                $thread['date'] = strtotime($thread['date']);
+                $thread['datum'] = date("d.m.Y", $thread['date']);
+            }
+            if($thread['ort'] != ''){
+                $thread['ort'] = $thread['ort'];
+            }
+
+            if($thread['ip_time'] != ''){
+                $thread['ip_time'] = $thread['ip_time'];
+            }
+            eval("\$tracker_thread = \"" . $templates->get ("iptracker_showthread") . "\";");
         }
-        eval("\$tracker_thread = \"" . $templates->get ("iptracker_showthread") . "\";");
     }
-
 }
 
 function ip_forumdisplay(&$thread){
-    global $db, $mybb, $templates, $forum, $thread, $tracker_forumdisplay,  $foruminfo;
+    global $db, $mybb, $templates, $forum, $thread, $tracker_forumdisplay,  $foruminfo, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
     $ip_inplay_id = $mybb->settings['ip_inplay_id'];
-    $archiv_id = $mybb->settings['archiv_id'];
+    $archiv_id = $mybb->settings['ip_archive_id'];
     $foruminfo['parentlist'] = ",".$foruminfo['parentlist'].",";
 
+    $tracker_forumdisplay = "";
     if(preg_match("/,$ip_inplay_id,/i", $foruminfo['parentlist']) OR preg_match("/,$archiv_id,/i", $foruminfo['parentlist']) ) {
         if($thread['spieler'] != ''){
-            $thread['spieler'] = "<i class=\"fa fa-group\" aria-hidden=\"true\"></i> ".$thread['spieler'];
-        }
-        if($thread['day'] != ''){
-            $thread['datum'] = $thread['day'] . "." . $thread['month'] . "." . $thread['year'];
-            $thread['datum'] = "<i class=\"fa fa-calendar\" aria-hidden=\"true\"></i> ".$thread['datum'];
-        }
-        if($thread['ort'] != ''){
-            $thread['ort'] = "<i class=\"fa fa-map-signs\" aria-hidden=\"true\"></i> ".$thread['ort'];
-        }
+            $charas = explode(", ", $thread['spieler']);
+            $charalist = array();
+            foreach ($charas as $charaname) {
+                $charaname = $db->escape_string($charaname);
+                $chara_query = $db->simple_select("users", "*", "username ='$charaname'");
+                $charaktername = $db->fetch_array($chara_query);
+                if (!empty($charaktername)) {
+                    $username = format_name($charaktername['username'], $charaktername['usergroup'], $charaktername['displaygroup']);
+                    $chara = build_profile_link($username, $charaktername['uid']);
+                } else {
+                    $chara = $charaname;
+                }
+                array_push($charalist, $chara);
+            }
 
-        if(!empty($thread['ip_time'])){
-            $thread['ip_time'] ="<i class=\"fas fa-clock\"></i> {$thread['ip_time']}";
-        }
+            //lasst uns die Charas wieder zusammenkleben :D
+            $thread['spieler']= implode(", ", $charalist);
+            $thread['spieler'] = "<i class=\"fas fa-angle-double-right\"></i> ".$thread['spieler'];
 
-        eval("\$tracker_forumdisplay = \"" . $templates->get ("iptracker_forumdisplay") . "\";");
-        return $thread;
+            if($thread['date'] != ''){
+                $thread['date'] = strtotime($thread['date']);
+                $thread['datum'] = date("d.m.Y", $thread['date']);
+                $thread['datum'] = "<i class=\"fas fa-angle-double-right\"></i> am ".$thread['datum'];
+            }
+            if($thread['ort'] != ''){
+                $thread['ort'] = "<i class=\"fas fa-angle-double-right\"></i> ".$thread['ort'];
+            }
+
+            if(!empty($thread['ip_time'])){
+                $thread['ip_time'] ="({$thread['ip_time']})";
+            }
+
+            eval("\$tracker_forumdisplay = \"" . $templates->get ("iptracker_forumdisplay") . "\";");
+            return $thread;
+        }
     }
-
 }
 
 //wer ist wo
 $plugins->add_hook('fetch_wol_activity_end', 'ip_user_activity');
 $plugins->add_hook('build_friendly_wol_location_end', 'ip_location_activity');
 function ip_user_activity($user_activity){
-    global $user;
+    global $user, $lang ;
 
     if(my_strpos($user['location'], "misc.php?action=ipszenen") !== false) {
         $user_activity['activity'] = "ipszenen";
@@ -979,7 +1058,9 @@ function ip_user_activity($user_activity){
 }
 
 function ip_location_activity($plugin_array) {
-    global $db, $mybb, $lang;
+    global $db, $mybb, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
 
     if($plugin_array['user_activity']['activity'] == "ipszenen")
     {
@@ -1010,7 +1091,10 @@ function ip_edit_options() {
 //bei Wunsch des Users, Einstellung für alle Charaktere übernehmen
 $plugins->add_hook('usercp_do_options_start', 'ip_edit_options_do');
 function ip_edit_options_do() {
-    global $mybb, $db, $templates;
+    global $mybb, $db, $templates, $lang ;
+    //Die Sprachdatei
+    $lang->load ('iptracker');
+
     //Was hat der User eingestellt?
     $ip_pn = $mybb->get_input('iptracker_pn', MyBB::INPUT_INT);
     $ip_pn_all = $mybb->input['iptracker_pn_all'];
