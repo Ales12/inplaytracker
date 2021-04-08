@@ -840,7 +840,7 @@ function ip_profile(){
     $aktive = 0;
     $beendete = 0;
     //jetzt ziehen wir uns noch die Inplay Szenen
-    $select = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time, t.subject, t.ort, t.lastposteruid, t.tid, any_value(p.pid), displaystyle
+    $select = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time, t.subject, t.ort, t.lastposteruid, t.tid, p.pid, displaystyle
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.tid = p.tid 
@@ -893,7 +893,7 @@ function ip_profile(){
 
 
     //jetzt ziehen wir uns noch die Archiv Szenen
-    $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time ,t.subject, t.ort, t.lastposteruid, t.tid, any_value(p.pid), displaystyle
+    $select2 = $db->query ("SELECT t.lastposter, t.lastpost, t.date, t.spieler, t.ip_time ,t.subject, t.ort, t.lastposteruid, t.tid, p.pid, displaystyle
         FROM " . TABLE_PREFIX . "threads t
         LEFT JOIN " . TABLE_PREFIX . "posts p
         on t.tid = p.tid 
