@@ -1,6 +1,54 @@
-# Änderungen für Inplaykalender von Jule (sparksfly)
+# Inplaytracker by Alex (Ales)
 
-## inplaykalender.php
+### Templates
+* iptracker_bit_misc 	
+* iptracker_forumdisplay 
+* iptracker_global 	
+* iptracker_infos 	
+* iptracker_misc 	
+* iptracker_misc_bit 	
+* iptracker_mitspieler 
+* iptracker_mitspieler_edit 	
+* iptracker_pn_usercp 	
+* iptracker_profile 	
+* iptracker_profile_bit 
+* iptracker_showthread
+
+### Variabeln
+
+**header_welcomeblock_member**
+```
+{$iptracker}
+```
+
+**forumdisplay_thread**
+```
+{$tracker_forumdisplay}
+```
+**showthread**
+```
+{$tracker_thread}
+```
+**member_profile**
+```
+{$tracker_profile}
+```
+**editpost**
+```
+{$ip_infos}
+```
+**newthread**
+```
+{$ip_infos}
+```
+**usercp_options**
+```
+{$tracker_pn}
+```
+
+## Änderungen für Inplaykalender von Jule (sparksfly)
+
+### inplaykalender.php
 ```
             // get inplay scenes
             if($db->field_exists("spieler", "threads")) {
@@ -19,7 +67,7 @@
             }
 ```
 
-## inc/plugins/inplaykalender.php
+### inc/plugins/inplaykalender.php
 ```
             // get inplay scenes
             $szenen = false;
