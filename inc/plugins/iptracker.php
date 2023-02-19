@@ -30,6 +30,10 @@ $plugins->add_hook('member_profile_end', 'ip_profile');
 $plugins->add_hook('showthread_start', 'ip_showthread');
 //Forumdisplay
 $plugins->add_hook('forumdisplay_thread_end', 'ip_forumdisplay');
+// Alerts
+if(class_exists('MybbStuff_MyAlerts_AlertTypeManager')) {
+    $plugins->add_hook("global_start", "iptracker_alerts");
+}
 
 
 
@@ -372,32 +376,51 @@ function iptracker_uninstall()
 
 function iptracker_activate()
 {
-    global $db;
+    global $db, $cache;
 
+    if(class_exists('MybbStuff_MyAlerts_AlertTypeManager')) {
+        $alertTypeManager = MybbStuff_MyAlerts_AlertTypeManager::getInstance();
 
+        if (!$alertTypeManager) {
+            $alertTypeManager = MybbStuff_MyAlerts_AlertTypeManager::createInstance($db, $cache);
+        }
+
+        $alertType = new MybbStuff_MyAlerts_Entity_AlertType();
+        $alertType->setCode('iptracker_newscene'); // The codename for your alert type. Can be any unique string.
+        $alertType->setEnabled(true);
+        $alertType->setCanBeUserDisabled(true);
+
+        $alertTypeManager->add($alertType);
+
+        $alertType = new MybbStuff_MyAlerts_Entity_AlertType();
+        $alertType->setCode('iptracker_newreply'); // The codename for your alert type. Can be any unique string.
+        $alertType->setEnabled(true);
+        $alertType->setCanBeUserDisabled(true);
+
+        $alertTypeManager->add($alertType);
+    }
+    
     require MYBB_ROOT."/inc/adminfunctions_templates.php";
-    find_replace_templatesets("header_welcomeblock_member", "#".preg_quote('<div class="wrapper">')."#i", '	<div class="wrapper"> {$iptracker}');
-    find_replace_templatesets("forumdisplay_thread", "#".preg_quote('{$thread[\'profilelink\']}')."#i", '{$tracker_forumdisplay} {$thread[\'profilelink\']}');
-    find_replace_templatesets("showthread", "#".preg_quote('<tr><td id="posts_container">')."#i", '{$tracker_thread}		<tr><td id="posts_container">');
-    find_replace_templatesets("member_profile", "#".preg_quote('{$signature}')."#i", '	{$signature} {$tracker_profile}');
-    find_replace_templatesets("editpost", "#".preg_quote('{$posticons}')."#i", '{$ip_infos}{$posticons}');
-    find_replace_templatesets("newthread", "#".preg_quote('{$posticons}')."#i", '{$ip_infos}	{$posticons}');
-    find_replace_templatesets("usercp_options", "#".preg_quote('{$calendaroptions}')."#i", '{$tracker_pn}
-{$calendaroptions}');
+
 }
 
 function iptracker_deactivate()
 {
-    global $db;
+    global $db, $cache;
+
+    if (class_exists('MybbStuff_MyAlerts_AlertTypeManager')) {
+        $alertTypeManager = MybbStuff_MyAlerts_AlertTypeManager::getInstance();
+
+        if (!$alertTypeManager) {
+            $alertTypeManager = MybbStuff_MyAlerts_AlertTypeManager::createInstance($db, $cache);
+        }
+
+        $alertTypeManager->deleteByCode('iptracker_newscene');
+        $alertTypeManager->deleteByCode('iptracker_newreply');
+    }
+
 
     require MYBB_ROOT."/inc/adminfunctions_templates.php";
-    find_replace_templatesets("header_welcomeblock_member", "#".preg_quote('{$iptracker}')."#i", '', 0);
-    find_replace_templatesets("showthread", "#".preg_quote('{$tracker_thread}')."#i", '', 0);
-    find_replace_templatesets("forumdisplay_thread", "#".preg_quote('{$tracker_forumdisplay}')."#i", '', 0);
-    find_replace_templatesets("member_profile", "#".preg_quote('{$tracker_profile}')."#i", '', 0);
-    find_replace_templatesets("editpost", "#".preg_quote('{$ip_infos}')."#i", '', 0);
-    find_replace_templatesets("newthread", "#".preg_quote('{$ip_infos}')."#i", '', 0);
-    find_replace_templatesets("usercp_options", "#".preg_quote('{$tracker_pn}')."#i", '', 0);
 
 }
 
@@ -408,13 +431,16 @@ function ip_newscene(){
     $lang->load ('iptracker');
     //Zieht sich erstmal die Einstellung
     $ipforum = $mybb->settings['ip_inplay_id'];
+
     //Usergruppen, die nicht beachtet werden sollen
     $usergruppe = array(7);
+
+    $thread['spieler'] = $mybb->user['username'].$mybb->get_input('spieler');
     $forum['parentlist'] = ",".$forum['parentlist'].",";
     if(preg_match("/,$ipforum,/i", $forum['parentlist'])){
         if($mybb->input['previewpost'] || $post_errors)
         {
-            $spieler = htmlspecialchars($mybb->get_input('spieler'));
+            $spieler = htmlspecialchars($mybb->input['spieler']);
             $date = $mybb->input['date'];
             $ip_time = $mybb->get_input('ip_time');
             $ort = htmlspecialchars($mybb->get_input('ort'));
@@ -434,9 +460,6 @@ function ip_newscene(){
 //und jetzt mach, was du machen sollst
 function ip_newscene_do(){
     global $db, $mybb, $templates, $tid, $forum;
-    require_once MYBB_ROOT . "inc/datahandlers/pm.php";
-    $pmhandler = new PMDataHandler();
-
     $ipforum = $mybb->settings['ip_inplay_id'];
     $forum['parentlist'] = ",".$forum['parentlist'].",";
     if(preg_match("/,$ipforum,/i", $forum['parentlist'])) {
@@ -455,7 +478,7 @@ function ip_newscene_do(){
 
             //Wenn Inplaytracker PN aktiv ist.
 
-            $uid_query = $db->query("SELECT uid, username, iptracker_pn 
+            $uid_query = $db->query("SELECT uid, username
           FROM ".TABLE_PREFIX."users 
           WHERE username = '".$username."'
            ");
@@ -464,28 +487,17 @@ function ip_newscene_do(){
             $charaname = $row['username'];
             $uid = $row['uid'];
             $from_uid = $mybb->user['uid'];
-            if($row['iptracker_pn'] == 1){
-                if($mybb->user['username'] != $charaname){
-                    $pm_change = array(
-                        "subject" => "Ich habe eine Szene eröffnet",
-                        "message" => "Hallo {$charaname}, <br /> Ich habe eine Szene eröffnet. Du findest sie <a href='showthread.php?tid={$tid}' target='_blank'>hier</a>.",
-                        //From: Wer schreibt die PN
-                        "fromid" => $from_uid,
-                        //to: an wen geht die pn
-                        "toid" => $uid
-                    );
-                    // $pmhandler->admin_override = true;
-                    $pmhandler->set_data($pm_change);
-                    if (!$pmhandler->validate_pm())
-                        return false;
-                    else {
-                        $pmhandler->insert_pm();
-                    }
+            if(class_exists('MybbStuff_MyAlerts_AlertTypeManager')) {
+                $alertType = MybbStuff_MyAlerts_AlertTypeManager::getInstance()->getByCode('iptracker_newscene');
+                if ($alertType != NULL && $alertType->getEnabled() && $from_uid != $uid) {
+                    $alert = new MybbStuff_MyAlerts_Entity_Alert((int)$uid, $alertType, (int)$tid);
+                    MybbStuff_MyAlerts_AlertManager::getInstance()->addAlert($alert);
                 }
             }
         }
 
         $charakter = implode(", ", $spieler);
+        $charakter = $charakter;
         $date = $_POST['date'];
         $ort = $_POST['ort'];
         $ip_time = $_POST['ip_time'];
@@ -505,8 +517,6 @@ function ip_reply_do(){
     global $mybb, $forum, $templates, $db, $tid, $thread, $lang ;
     //Die Sprachdatei
     $lang->load ('iptracker');
-    require_once MYBB_ROOT . "inc/datahandlers/pm.php";
-    $pmhandler = new PMDataHandler();
 
     $ipforum = $mybb->settings['ip_inplay_id'];
 
@@ -518,7 +528,7 @@ function ip_reply_do(){
 
         foreach ($charas as $chara) {
             $chara = $db->escape_string($chara);
-            $uid_query = $db->query("SELECT uid, username,iptracker_pn 
+            $uid_query = $db->query("SELECT uid, username
           FROM ".TABLE_PREFIX."users 
           WHERE username = '".$chara."'
            ");
@@ -527,24 +537,18 @@ function ip_reply_do(){
             $charaname = $row['username'];
             $uid = $row['uid'];
             $from_uid = $mybb->user['uid'];
-            $from_uid = $mybb->user['uid'];
-            if($row['iptracker_pn'] == 1) {
-                if ($mybb->user['username'] != $charaname) {
-                    $pm_change = array(
-                        "subject" => "Ich habe auf unser Szene '{$subject}' geantwortet",
-                        "message" => "Hallo {$charaname}, <br /> Ich habe auf unsere Szene eröffnet. Du findest meine Antwort <a href='showthread.php?tid={$tid}&action=lastpost' target='_blank'>hier</a>.",
-                        //From: Wer schreibt die PN
-                        "fromid" => $from_uid,
-                        //to: an wen geht die pn
-                        "toid" => $uid
-                    );
-                    // $pmhandler->admin_override = true;
-                    $pmhandler->set_data($pm_change);
-                    if (!$pmhandler->validate_pm())
-                        return false;
-                    else {
-                        $pmhandler->insert_pm();
-                    }
+            if (class_exists('MybbStuff_MyAlerts_AlertTypeManager')) {
+                $last_post = $db->fetch_field($db->query("SELECT pid FROM ".TABLE_PREFIX."posts WHERE tid = '$thread[tid]' ORDER BY pid DESC LIMIT 1"), "pid");
+
+                $alertType = MybbStuff_MyAlerts_AlertTypeManager::getInstance()->getByCode('iptracker_newreply');
+                if ($alertType != NULL && $alertType->getEnabled() && $from_uid != $uid) {
+                    $alert = new MybbStuff_MyAlerts_Entity_Alert((int)$uid, $alertType, (int)$thread['tid']);
+                    $alert->setExtraDetails([
+                        'subject' => $subject,
+                        'lastpost' => $last_post
+                    ]);
+                    MybbStuff_MyAlerts_AlertManager::getInstance()->addAlert($alert);
+
                 }
             }
         }
@@ -653,7 +657,7 @@ function ipscenes()
             while ($row = $db->fetch_array($select)) {
                 $szene = "";
                 $spieler = $db->escape_string($row['username']);
-                $character = format_name($spieler, $row['usergroup'], $row['displaygroup']);
+                $character = format_name($row['username'], $row['usergroup'], $row['displaygroup']);
 
                 $charaoffenszenen = 0;
                 $charaszenen = 0;
@@ -690,8 +694,9 @@ function ipscenes()
                     }
 
 
+
                     if(empty($prefix)) {
-                        if ($next == $spieler) {
+                        if ($next == $row['username']) {
                             $status = "<center><i class=\"fa fa-star\" aria-hidden=\"true\"></i> <span style=\"text-transform: uppercase; font-size: 12px; font-weight: bold;\">DU BIST DRAN!</span></center>";
                             $alleoffeneszenen++;
                             $charaoffenszenen++;
@@ -708,7 +713,7 @@ function ipscenes()
                     $szenen['date'] = strtotime($szenen['date']);
                     $szenen['datum'] = date("d.m.Y", $szenen['date']);
                     if(!empty($szenen['ip_time'])){
-                        $szenen['ip_time'] = "(um ".$szenen['ip_time'].")";
+                        $szenen['ip_time'] = ", ".$szenen['ip_time'];
                     }
 
                     $postdate = my_date("relative", $szenen['lastpost']);
@@ -813,7 +818,7 @@ function ip_global(){
 
             if(empty($szenen['prefix'])) {
 
-                if ($next == $spieler) {
+                if ($next == $row['username']) {
                     $alleoffeneszenen++;
                 }
             }
@@ -835,6 +840,7 @@ function ip_profile(){
     //Userid
     $charakter = $db->escape_string($memprofile['username']);
     $charakterid = $memprofile['uid'];
+
 
 
     $aktive = 0;
@@ -864,7 +870,7 @@ function ip_profile(){
         $szenen['datum'] = date("d.m.Y", $szenen['date']);
 
         if($szenen['ip_time'] != '00:00:00'){
-            $szenen['ip_time'] = "(um ".$szenen['ip_time'].")";
+            $szenen['ip_time'] = "(".$szenen['ip_time'].")";
         }
 
         $prefix = $szenen['displaystyle'];
@@ -948,7 +954,7 @@ function ip_profile(){
 }
 
 function ip_showthread(){
-    global $db, $mybb, $templates, $forum, $thread, $tracker_thread, $lang ;
+    global $db, $mybb, $templates, $forum, $thread, $tracker_thread, $lang,   $charas;
     //Die Sprachdatei
     $lang->load ('iptracker');
 
@@ -976,7 +982,7 @@ function ip_showthread(){
             }
 
             //lasst uns die Charas wieder zusammenkleben :D
-            $thread['spieler']= implode(", ", $charalist);
+            $charas = implode(", ", $charalist);
 
 
             if($thread['date'] != ''){
@@ -1023,15 +1029,15 @@ function ip_forumdisplay(&$thread){
 
             //lasst uns die Charas wieder zusammenkleben :D
             $thread['spieler']= implode(", ", $charalist);
-            $thread['spieler'] = "<i class=\"fas fa-angle-double-right\"></i> ".$thread['spieler'];
+            $thread['spieler'] = $thread['spieler'];
 
             if($thread['date'] != ''){
                 $thread['date'] = strtotime($thread['date']);
                 $thread['datum'] = date("d.m.Y", $thread['date']);
-                $thread['datum'] = "<i class=\"fas fa-angle-double-right\"></i> am ".$thread['datum'];
+                $thread['datum'] = " am ".$thread['datum'];
             }
             if($thread['ort'] != ''){
-                $thread['ort'] = "<i class=\"fas fa-angle-double-right\"></i> ".$thread['ort'];
+                $thread['ort'] = $thread['ort'];
             }
 
             if(!empty($thread['ip_time'])){
@@ -1070,51 +1076,129 @@ function ip_location_activity($plugin_array) {
     return $plugin_array;
 }
 
-$plugins->add_hook('usercp_options_start', 'ip_edit_options');
-function ip_edit_options() {
-    global $db, $mybb, $templates, $pn_check, $tracker_pn, $pn_check_all ;
 
-    $ip_pn = $mybb->user['iptracker_pn'];
-    $ip_pn_all = $mybb->user['iptracker_pn_all'];
-    $pn_check = '';
-    if($ip_pn == 1){
-        $pn_check = 'checked="checked"';
-    }
-    if($ip_pn_all == 1){
-        $pn_check_all = 'checked="checked"';
-    }
 
-    eval("\$tracker_pn .=\"".$templates->get("iptracker_pn_usercp")."\";");
-}
+function iptracker_alerts() {
+    global $mybb, $lang;
+    $lang->load('iptracker');
 
-//User CP: änderungen im ucp speichern
-//bei Wunsch des Users, Einstellung für alle Charaktere übernehmen
-$plugins->add_hook('usercp_do_options_start', 'ip_edit_options_do');
-function ip_edit_options_do() {
-    global $mybb, $db, $templates, $lang ;
-    //Die Sprachdatei
-    $lang->load ('iptracker');
-
-    //Was hat der User eingestellt?
-    $ip_pn = $mybb->get_input('iptracker_pn', MyBB::INPUT_INT);
-    $ip_pn_all = $mybb->input['iptracker_pn_all'];
-
-    //Wer ist online, Wer ist Hauptaccount.
-    $this_user = intval($mybb->user['uid']);
-    $as_uid = intval($mybb->user['as_uid']);
-//Soll für alle Charaktere übernommen werden oder nicht?
-    if($ip_pn_all == 1) {
-        //Ja, alle raussuchen
-        if($as_uid == 0) {
-            $id = intval($mybb->user['uid']);
-        } else {
-            $id = intval($mybb->user['as_uid']);
+     /**
+     * Alert formatter for my custom alert type.
+     */
+    class MybbStuff_MyAlerts_Formatter_InplaytrackerNewsceneFormatter extends MybbStuff_MyAlerts_Formatter_AbstractFormatter
+    {
+        /**
+         * Format an alert into it's output string to be used in both the main alerts listing page and the popup.
+         *
+         * @param MybbStuff_MyAlerts_Entity_Alert $alert The alert to format.
+         *
+         * @return string The formatted alert string.
+         */
+        public function formatAlert(MybbStuff_MyAlerts_Entity_Alert $alert, array $outputAlert)
+        {
+            $alertContent = $alert->getExtraDetails();
+            return $this->lang->sprintf(
+                $this->lang->iptracker_newscene,
+                $outputAlert['from_user'],
+                $outputAlert['dateline']
+            );
         }
-        //speichern
-        $db->query("UPDATE ".TABLE_PREFIX."users SET iptracker_pn=".$ip_pn." WHERE uid=".$id." OR as_uid=".$id."");
 
-    } else {
-        //nur für aktuellen Charakter speichern
-        $db->query("UPDATE ".TABLE_PREFIX."users SET iptracker_pn=".$ip_pn." WHERE uid=".$this_user."");
+
+        /**
+         * Init function called before running formatAlert(). Used to load language files and initialize other required
+         * resources.
+         *
+         * @return void
+         */
+        public function init()
+        {
+        }
+
+        /**
+         * Build a link to an alert's content so that the system can redirect to it.
+         *
+         * @param MybbStuff_MyAlerts_Entity_Alert $alert The alert to build the link for.
+         *
+         * @return string The built alert, preferably an absolute link.
+         */
+        public function buildShowLink(MybbStuff_MyAlerts_Entity_Alert $alert)
+        {
+            $alertContent = $alert->getExtraDetails();
+            return $this->mybb->settings['bburl'] . '/' . get_post_link((int) $alertContent['lastpost'], (int) $alert->getObjectId());
+        }
     }
+
+    if (class_exists('MybbStuff_MyAlerts_AlertFormatterManager')) {
+        $formatterManager = MybbStuff_MyAlerts_AlertFormatterManager::getInstance();
+
+        if (!$formatterManager) {
+            $formatterManager = MybbStuff_MyAlerts_AlertFormatterManager::createInstance($mybb, $lang);
+        }
+
+        $formatterManager->registerFormatter(
+            new MybbStuff_MyAlerts_Formatter_InplaytrackerNewsceneFormatter($mybb, $lang, 'iptracker_newscene')
+        );
+    }
+
+    /**
+     * Alert formatter for my custom alert type.
+     */
+    class MybbStuff_MyAlerts_Formatter_InplaytrackerNewreplyFormatter extends MybbStuff_MyAlerts_Formatter_AbstractFormatter
+    {
+        /**
+         * Format an alert into it's output string to be used in both the main alerts listing page and the popup.
+         *
+         * @param MybbStuff_MyAlerts_Entity_Alert $alert The alert to format.
+         *
+         * @return string The formatted alert string.
+         */
+        public function formatAlert(MybbStuff_MyAlerts_Entity_Alert $alert, array $outputAlert)
+        {
+            $alertContent = $alert->getExtraDetails();
+            return $this->lang->sprintf(
+                $this->lang->iptracker_newreply,
+                $outputAlert['from_user'],
+                $alertContent['subject'],
+                $outputAlert['dateline']
+            );
+        }
+
+
+        /**
+         * Init function called before running formatAlert(). Used to load language files and initialize other required
+         * resources.
+         *
+         * @return void
+         */
+        public function init()
+        {
+        }
+
+        /**
+         * Build a link to an alert's content so that the system can redirect to it.
+         *
+         * @param MybbStuff_MyAlerts_Entity_Alert $alert The alert to build the link for.
+         *
+         * @return string The built alert, preferably an absolute link.
+         */
+        public function buildShowLink(MybbStuff_MyAlerts_Entity_Alert $alert)
+        {
+            $alertContent = $alert->getExtraDetails();
+            return $this->mybb->settings['bburl'] . '/' . get_post_link((int) $alertContent['lastpost'], (int) $alert->getObjectId()) . '#pid' . $alertContent['lastpost'];
+        }
+    }
+
+    if (class_exists('MybbStuff_MyAlerts_AlertFormatterManager')) {
+        $formatterManager = MybbStuff_MyAlerts_AlertFormatterManager::getInstance();
+
+        if (!$formatterManager) {
+            $formatterManager = MybbStuff_MyAlerts_AlertFormatterManager::createInstance($mybb, $lang);
+        }
+
+        $formatterManager->registerFormatter(
+            new MybbStuff_MyAlerts_Formatter_InplaytrackerNewreplyFormatter($mybb, $lang, 'iptracker_newreply')
+        );
+    }
+
 }
